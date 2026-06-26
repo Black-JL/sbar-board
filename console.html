@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mock Board — Instructor Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Crimson+Pro:wght@600&display=swap" rel="stylesheet">
+<script>
+/* ============================================================
+   INSTRUCTOR CONSOLE — the one page you keep open to run the board.
+   Keep this URL to yourself. Edit CONFIG, then run the class from here.
+   ============================================================ */
+const CONFIG = {
+  round: "Round 5",
+  endpoint: "",   // <-- Apps Script /exec URL (same one everywhere)
+  // The public link STUDENTS use to vote. In the deployed lab this is the
+  // GitHub Pages URL of vote.html. Leave "vote.html" for same-folder hosting.
+  voteUrl: "vote.html"
+};
+</script>
+<style>
+  :root{ --navy:#1f3a5f; --navy-dark:#16293f; --gold:#b8860b; --soft:#566; --rule:#dde3ea; --bg:#eef1f5; --good:#1c7c4a; --bad:#a23a2c; }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Inter',sans-serif;color:#1a1a1a;background:var(--bg);line-height:1.45;-webkit-font-smoothing:antialiased;}
+  header{background:var(--navy);color:#fff;padding:1.3rem 1.5rem;display:flex;justify-content:space-between;align-items:center;}
+  header .kick{font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.6);}
+  header h1{font-family:'Crimson Pro',serif;font-size:1.55rem;font-weight:600;margin-top:.15rem;}
+  header .round{font-size:.9rem;color:rgba(255,255,255,.8);text-align:right;}
+  header .round b{display:block;font-family:'Crimson Pro',serif;font-size:1.5rem;color:#fff;}
+  .wrap{max-width:760px;margin:0 auto;padding:1.4rem;}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:.8rem;margin-bottom:1.4rem;}
+  .stat{background:#fff;border:1px solid var(--rule);border-radius:10px;padding:.9rem 1rem;text-align:center;}
+  .stat .n{font-family:'Crimson Pro',serif;font-size:2.1rem;font-weight:600;color:var(--navy);line-height:1;}
+  .stat .l{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--soft);margin-top:.3rem;}
+  .step{background:#fff;border:1px solid var(--rule);border-radius:11px;padding:1rem 1.15rem;margin-bottom:.8rem;display:grid;grid-template-columns:2.3rem 1fr auto;gap:1rem;align-items:center;}
+  .step .num{font-family:'Crimson Pro',serif;font-size:1.5rem;font-weight:600;color:var(--gold);text-align:center;}
+  .step .txt .t{font-weight:700;color:var(--navy);}
+  .step .txt .d{font-size:.83rem;color:var(--soft);margin-top:.1rem;}
+  .step a.btn,.step button.btn{background:var(--navy);color:#fff;border:none;border-radius:8px;padding:.6rem 1.2rem;font-family:'Inter';font-size:.88rem;font-weight:600;cursor:pointer;text-decoration:none;white-space:nowrap;display:inline-block;}
+  .step a.btn:hover,.step button.btn:hover{background:var(--navy-dark);}
+  .linkrow{display:flex;gap:.5rem;align-items:center;margin-top:.5rem;}
+  .linkrow input{flex:1;padding:.5rem .6rem;border:1px solid var(--rule);border-radius:7px;font-family:'Inter';font-size:.82rem;color:#333;background:#f7f9fc;}
+  .linkrow button{background:#fff;border:1px solid var(--rule);border-radius:7px;padding:.5rem .9rem;font-weight:600;font-size:.8rem;color:var(--navy);cursor:pointer;}
+  .vstatus{font-size:.78rem;font-weight:700;padding:.12rem .5rem;border-radius:100px;margin-left:.4rem;vertical-align:middle;}
+  .vstatus.live{background:#e3f6ec;color:var(--good);}
+  .vstatus.closed{background:#eef1f5;color:var(--soft);}
+  details.ref{margin-top:.5rem;}
+  details.ref summary{font-size:.78rem;color:var(--soft);cursor:pointer;}
+  details.ref .linkrow{margin-top:.45rem;}
+  .danger{margin-top:1.6rem;border:1px solid #e7c9c4;background:#fdf3f2;border-radius:11px;padding:1rem 1.15rem;display:flex;justify-content:space-between;align-items:center;gap:1rem;}
+  .danger .t{font-weight:700;color:var(--bad);}
+  .danger .d{font-size:.82rem;color:#8a4a40;margin-top:.1rem;}
+  .danger button{background:#fff;border:1.5px solid var(--bad);color:var(--bad);border-radius:8px;padding:.6rem 1.1rem;font-family:'Inter';font-weight:700;font-size:.85rem;cursor:pointer;white-space:nowrap;}
+  .danger button:hover{background:var(--bad);color:#fff;}
+  .toast{position:fixed;bottom:1.2rem;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:.7rem 1.4rem;border-radius:8px;font-size:.9rem;opacity:0;transition:.25s;pointer-events:none;}
+  .toast.show{opacity:1;}
+  .demo-tag{background:#fff3cd;color:#7a5b00;font-size:.72rem;text-align:center;padding:.3rem;font-weight:600;}
+</style>
+</head>
+<body>
+<div id="demoTag" class="demo-tag" style="display:none;">DEMO MODE — set an ENDPOINT to control the live board.</div>
+<header>
+  <div><div class="kick">Lesson 10 · SBAR Pilot · Mock Board</div><h1>Instructor Console</h1></div>
+  <div class="round"><span class="kick">Round</span><b id="roundLbl"></b></div>
+</header>
+<div class="wrap">
+  <div class="stats">
+    <div class="stat"><div class="n" id="nSub">0</div><div class="l">Submissions</div></div>
+    <div class="stat"><div class="n" id="nFin">0</div><div class="l">Finalists</div></div>
+    <div class="stat"><div class="n" id="nBal">0</div><div class="l">Ballots</div></div>
+  </div>
+
+  <div class="step"><div class="num">1</div>
+    <div class="txt"><div class="t">Review submissions</div><div class="d">Read every MFR students uploaded.</div></div>
+    <a class="btn" id="reviewBtn" target="_blank">Open ↗</a></div>
+
+  <div class="step"><div class="num">2</div>
+    <div class="txt"><div class="t">Pick &amp; publish finalists</div><div class="d">Choose the ones the class will score, then Publish.</div></div>
+    <a class="btn" id="pickBtn" target="_blank">Open ↗</a></div>
+
+  <div class="step"><div class="num">3</div>
+    <div class="txt"><div class="t">Voting <span id="voteStatus" class="vstatus">…</span></div>
+      <div class="d">Students reach voting from the SBAR lab site — nothing to hand out. <b>Publishing finalists (step 2) is what opens it.</b></div>
+      <details class="ref"><summary>Reference link (if you ever want to post it elsewhere)</summary>
+        <div class="linkrow"><input id="voteLink" readonly><button id="copyVote">Copy</button></div></details></div>
+    <a class="btn" id="voteBtn" target="_blank">Preview ↗</a></div>
+
+  <div class="step"><div class="num">4</div>
+    <div class="txt"><div class="t">Project live results</div><div class="d">Put this on the big screen during the board.</div></div>
+    <a class="btn" id="resultsBtn" target="_blank">Open ↗</a></div>
+
+  <div class="danger">
+    <div><div class="t">Clear everything for the next class</div>
+      <div class="d">Deletes all submissions, finalists, and ballots for <b id="roundLbl2"></b>. Cannot be undone.</div></div>
+    <button id="clearBtn">⟲ Clear board</button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const R=encodeURIComponent(CONFIG.round);
+$('roundLbl').textContent=CONFIG.round; $('roundLbl2').textContent=CONFIG.round;
+if(!CONFIG.endpoint) $('demoTag').style.display='block';
+
+// wire links (carry the round + instructor flag where relevant)
+$('reviewBtn').href = 'browse.html?instructor=1&round='+R;
+$('pickBtn').href   = 'pick.html?round='+R;
+$('resultsBtn').href= 'results.html?round='+R;
+$('voteBtn').href   = CONFIG.voteUrl;
+$('voteLink').value = new URL(CONFIG.voteUrl, location.href).href;
+$('copyVote').onclick=()=>{ navigator.clipboard.writeText($('voteLink').value).then(()=>toast('Voting link copied')); };
+
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),2400); }
+
+async function refresh(){
+  if(!CONFIG.endpoint){ return; }
+  try{
+    const [subs,fin,tal]=await Promise.all([
+      fetch(CONFIG.endpoint+'?action=list&round='+R+'&t='+Date.now()).then(r=>r.json()).catch(()=>({files:[]})),
+      fetch(CONFIG.endpoint+'?action=finalists&round='+R+'&t='+Date.now()).then(r=>r.json()).catch(()=>({finalists:[]})),
+      fetch(CONFIG.endpoint+'?action=tally&round='+R+'&t='+Date.now()).then(r=>r.json()).catch(()=>({ballots:[]}))
+    ]);
+    const nFin=(fin.finalists||[]).length;
+    $('nSub').textContent=(subs.files||[]).length;
+    $('nFin').textContent=nFin;
+    $('nBal').textContent=(tal.ballots||[]).length;
+    const vs=$('voteStatus');
+    if(nFin>0){ vs.textContent='LIVE'; vs.className='vstatus live'; }
+    else { vs.textContent='opens when you publish finalists'; vs.className='vstatus closed'; }
+  }catch(e){}
+}
+
+$('clearBtn').onclick=async ()=>{
+  if(!confirm('Clear ALL submissions, finalists, and ballots for '+CONFIG.round+'?\n\nThis cannot be undone. Do this only between classes.')) return;
+  if(!confirm('Are you sure? This permanently removes every uploaded document and vote for '+CONFIG.round+'.')) return;
+  if(CONFIG.endpoint){
+    try{ await fetch(CONFIG.endpoint,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({action:'reset',round:CONFIG.round})}); }catch(e){}
+  } else {
+    ['mb_uploads','mb_votes','mb_finalists_'+CONFIG.round,'mb_submitted_'+CONFIG.round].forEach(k=>localStorage.removeItem(k));
+  }
+  toast('Board cleared for the next class.');
+  setTimeout(refresh, 800);
+};
+
+refresh(); setInterval(refresh, 5000);
+</script>
+</body>
+</html>

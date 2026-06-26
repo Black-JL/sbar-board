@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mock Board — Live Results</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Crimson+Pro:wght@600;700&display=swap" rel="stylesheet">
+<script>
+/* CONFIG — must match vote.html.
+   endpoint: same Apps Script /exec URL. Leave "" to read this device's
+   localStorage (DEMO mode, same browser the votes were cast in). */
+const CONFIG = {
+  round: "Round 5",
+  endpoint: "",            // <-- same /exec URL as vote.html
+  pollSeconds: 4,
+  finalists: [
+    { id: 1, pseudonym: "—" },
+    { id: 2, pseudonym: "—" },
+    { id: 3, pseudonym: "—" },
+    { id: 4, pseudonym: "—" },
+    { id: 5, pseudonym: "—" }
+  ]
+};
+const DIMS = ["human","source","restrained","format","compelling","nopii"];
+</script>
+<style>
+  :root{ --navy:#1f3a5f; --gold:#b8860b; --ink:#1a1a1a; --soft:#667; --rule:#d8dde5; --bg:#0e1b2c; --good:#3ecf8e; }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Inter',sans-serif;background:var(--bg);color:#fff;min-height:100vh;padding:2.5vh 3vw;}
+  header{display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid rgba(255,255,255,.15);padding-bottom:1rem;margin-bottom:1.5rem;}
+  header .kick{font-size:.8rem;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.55);}
+  header h1{font-family:'Crimson Pro',serif;font-size:2.4rem;font-weight:700;margin-top:.2rem;}
+  header .count{text-align:right;font-size:.85rem;color:rgba(255,255,255,.6);}
+  header .count b{font-family:'Crimson Pro',serif;font-size:2.2rem;color:#fff;display:block;}
+  .rows{display:flex;flex-direction:column;gap:.8rem;}
+  .row{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:1rem 1.3rem;display:grid;grid-template-columns:3rem 1fr auto;gap:1.2rem;align-items:center;transition:.4s;}
+  .row.leader{background:linear-gradient(90deg,rgba(184,134,11,.22),rgba(255,255,255,.05));border-color:var(--gold);}
+  .rank{font-family:'Crimson Pro',serif;font-size:2rem;font-weight:700;color:rgba(255,255,255,.4);text-align:center;}
+  .row.leader .rank{color:var(--gold);}
+  .who .fname{font-size:1.15rem;font-weight:700;}
+  .who .fpseudo{font-size:.85rem;color:rgba(255,255,255,.6);}
+  .who .star{color:var(--gold);font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;margin-left:.5rem;}
+  .bar-wrap{margin-top:.5rem;height:8px;background:rgba(255,255,255,.1);border-radius:4px;overflow:hidden;}
+  .bar{height:100%;background:var(--good);border-radius:4px;transition:width .6s;}
+  .row.leader .bar{background:var(--gold);}
+  .metrics{text-align:right;min-width:13rem;}
+  .metrics .avg{font-family:'Crimson Pro',serif;font-size:2.1rem;font-weight:700;line-height:1;}
+  .metrics .avg .o{font-size:1rem;color:rgba(255,255,255,.45);font-family:'Inter';font-weight:400;}
+  .metrics .fwd{font-size:.82rem;color:rgba(255,255,255,.7);margin-top:.25rem;}
+  .metrics .fwd b{color:var(--good);}
+  .dimrow{font-size:.72rem;color:rgba(255,255,255,.5);margin-top:.35rem;letter-spacing:.02em;}
+  footer{margin-top:1.5rem;font-size:.75rem;color:rgba(255,255,255,.4);text-align:center;}
+  .demo{background:#3a2e00;color:#ffd76b;text-align:center;padding:.4rem;font-size:.78rem;border-radius:6px;margin-bottom:1rem;font-weight:600;}
+</style>
+</head>
+<body>
+<div id="demo" class="demo" style="display:none;">DEMO MODE — reading this browser's local ballots only. Set the same ENDPOINT as vote.html to read all students live.</div>
+<header>
+  <div><div class="kick">Lesson 10 · Mock Board · <span id="roundLbl"></span></div><h1>Live Results</h1></div>
+  <div class="count"><b id="ballotCount">0</b>ballots in</div>
+</header>
+<div class="rows" id="rows"></div>
+<footer>Auto-refreshes every <span id="ps"></span>s · winner = highest average total /30 · ties broken by % would-forward</footer>
+
+<script>
+const DIM_LABEL={human:"Human",source:"Source",restrained:"Restrained",format:"Format",compelling:"Compelling",nopii:"No PII"};
+function tally(ballots){
+  const agg={}; CONFIG.finalists.forEach(f=>agg[f.id]={id:f.id,pseudonym:f.pseudonym,n:0,sumTotal:0,fwdYes:0,dim:{}});
+  DIMS.forEach(d=>CONFIG.finalists.forEach(f=>agg[f.id].dim[d]=0));
+  ballots.forEach(b=>(b.votes||[]).forEach(v=>{
+    const a=agg[v.finalist]; if(!a) return; a.n++; a.sumTotal+=v.total||0; if(v.forward==='yes')a.fwdYes++;
+    DIMS.forEach(d=>a.dim[d]+=(v.scores&&v.scores[d])||0);
+  }));
+  const arr=Object.values(agg).map(a=>({...a,avg:a.n?a.sumTotal/a.n:0,fwdPct:a.n?Math.round(100*a.fwdYes/a.n):0}));
+  arr.sort((x,y)=> y.avg-x.avg || y.fwdPct-x.fwdPct);
+  return arr;
+}
+function draw(ballots){
+  document.getElementById('roundLbl').textContent=CONFIG.round;
+  document.getElementById('ps').textContent=CONFIG.pollSeconds;
+  document.getElementById('ballotCount').textContent=ballots.length;
+  const arr=tally(ballots); const rows=document.getElementById('rows'); rows.innerHTML='';
+  arr.forEach((a,i)=>{
+    const el=document.createElement('div'); el.className='row'+(i===0&&a.n>0?' leader':'');
+    const dimAvgs=DIMS.map(d=>`${DIM_LABEL[d]} ${(a.n?a.dim[d]/a.n:0).toFixed(1)}`).join(' · ');
+    el.innerHTML=`<div class="rank">${i+1}</div>
+      <div class="who"><span class="fname">Finalist #${a.id}</span> <span class="fpseudo">${a.pseudonym}</span>${i===0&&a.n>0?'<span class="star">★ Leader</span>':''}
+        <div class="bar-wrap"><div class="bar" style="width:${Math.round(100*a.avg/30)}%"></div></div>
+        <div class="dimrow">${dimAvgs}</div></div>
+      <div class="metrics"><div class="avg">${a.avg.toFixed(1)}<span class="o"> /30</span></div>
+        <div class="fwd"><b>${a.fwdPct}%</b> would forward · n=${a.n}</div></div>`;
+    rows.appendChild(el);
+  });
+}
+async function loadFinalists(){
+  if(CONFIG.endpoint){
+    try{ const r=await fetch(CONFIG.endpoint+'?action=finalists&round='+encodeURIComponent(CONFIG.round)+'&t='+Date.now());
+      const d=await r.json(); if(Array.isArray(d.finalists)&&d.finalists.length)
+        CONFIG.finalists=d.finalists.map(f=>({id:f.finalist,pseudonym:f.pseudonym})); }catch(e){}
+  } else {
+    const ls=localStorage.getItem('mb_finalists_'+CONFIG.round);
+    if(ls){ try{ const l=JSON.parse(ls); if(l.length) CONFIG.finalists=l.map(f=>({id:f.finalist,pseudonym:f.pseudonym})); }catch(e){} }
+  }
+}
+async function load(){
+  await loadFinalists();
+  if(CONFIG.endpoint){
+    try{ const r=await fetch(CONFIG.endpoint+'?action=tally&round='+encodeURIComponent(CONFIG.round)+'&t='+Date.now());
+      const data=await r.json(); draw(data.ballots||[]); }
+    catch(e){ /* keep last frame */ }
+  } else {
+    document.getElementById('demo').style.display='block';
+    draw(JSON.parse(localStorage.getItem('mb_votes')||'[]'));
+  }
+}
+load(); setInterval(load, CONFIG.pollSeconds*1000);
+</script>
+</body>
+</html>

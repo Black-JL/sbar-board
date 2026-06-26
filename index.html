@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SBAR Hand-Off Pilot — MFR Lab</title>
+<meta name="description" content="Source materials and instructions for the AI Skills Lab: Language Generation.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Crimson+Pro:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy: #1f3a5f; --navy-dark: #15294a; --navy-light: #345a8a;
+    --accent: #d8901c; --bg: #fdfdfc; --text: #1a1a1a; --muted: #5a5a5a;
+    --border: #d8dde5; --hint-bg: #f5f8fc; --warm-bg: #fffaee;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; color: var(--text); background: var(--bg); line-height: 1.55; -webkit-font-smoothing: antialiased; }
+  a { color: var(--navy); text-decoration: none; }
+  a:hover { color: var(--navy-light); text-decoration: underline; }
+  .site-header { background: var(--navy); color: #fff; padding: 1.5rem 1.25rem; position: relative; overflow: hidden; }
+  .site-header::after { content: ''; position: absolute; top: -30%; right: -10%; width: 50%; height: 200%; background: radial-gradient(ellipse at center, rgba(255,255,255,0.06) 0%, transparent 60%); pointer-events: none; }
+  .site-header .container { max-width: 800px; margin: 0 auto; position: relative; }
+  .eyebrow { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1.5px; color: rgba(255,255,255,0.7); font-weight: 600; margin-bottom: 0.5rem; }
+  .site-header h1 { font-family: 'Crimson Pro', serif; font-weight: 600; font-size: clamp(1.7rem, 5vw, 2.4rem); line-height: 1.1; margin-bottom: 0.4rem; }
+  .site-header .subtitle { font-size: 0.95rem; color: rgba(255,255,255,0.85); font-style: italic; }
+  .container { max-width: 800px; margin: 0 auto; padding: 0 1.25rem; }
+  section { padding: 2rem 0; border-bottom: 1px solid var(--border); }
+  section:last-of-type { border-bottom: none; }
+  section h2 { font-family: 'Crimson Pro', serif; font-weight: 600; font-size: 1.6rem; color: var(--navy); margin-bottom: 0.6rem; }
+  section h3 { font-size: 0.85rem; font-weight: 700; color: var(--navy); text-transform: uppercase; letter-spacing: 0.6px; margin-top: 1.4rem; margin-bottom: 0.5rem; }
+  section p { margin-bottom: 0.75rem; font-size: 1rem; }
+  section ul, section ol { margin-left: 1.4rem; margin-bottom: 0.75rem; }
+  section li { margin-bottom: 0.3rem; }
+  .scenario { background: #f7f8fa; border-left: 4px solid var(--navy); padding: 1rem 1.2rem; border-radius: 0 6px 6px 0; margin-bottom: 1.25rem; }
+  .scenario .label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.7px; color: var(--navy); margin-bottom: 0.4rem; }
+  .scenario .body { font-size: 1rem; line-height: 1.6; }
+  .scenario .body strong { color: var(--navy); }
+  .cta-row { display: flex; gap: 0.8rem; margin: 1.25rem 0 1rem; flex-wrap: wrap; }
+  .btn { display: inline-flex; align-items: center; gap: 0.5rem; background: var(--navy); color: #fff; padding: 0.85rem 1.3rem; border-radius: 6px; font-weight: 600; font-size: 0.95rem; text-decoration: none; transition: background 0.15s; }
+  .btn:hover { background: var(--navy-dark); color: #fff; text-decoration: none; }
+  .btn.secondary { background: #fff; color: var(--navy); border: 1.5px solid var(--navy); }
+  .btn.secondary:hover { background: var(--navy); color: #fff; }
+  .btn .icon { font-size: 1.1rem; line-height: 1; }
+  .rounds { list-style: none; margin-left: 0; counter-reset: round-counter; }
+  .rounds > li { position: relative; padding-left: 2.6rem; margin-bottom: 1.5rem; counter-increment: round-counter; }
+  .rounds > li::before { content: counter(round-counter); position: absolute; left: 0; top: 0; width: 1.8rem; height: 1.8rem; line-height: 1.8rem; text-align: center; border-radius: 50%; background: var(--navy); color: #fff; font-size: 0.9rem; font-weight: 700; }
+  .rounds > li > .title { display: block; font-weight: 600; color: var(--navy); font-size: 1.05rem; line-height: 1.3; margin-bottom: 0.4rem; margin-top: 0.05rem; }
+  .rounds > li > .title .time-tag { font-weight: 400; color: var(--muted); font-size: 0.85rem; font-style: italic; margin-left: 0.45rem; }
+  .rounds > li.break-marker { counter-increment: none; padding-left: 0; margin: 1.5rem 0; text-align: center; font-style: italic; color: var(--muted); font-size: 0.95rem; position: relative; }
+  .rounds > li.break-marker::before { content: none; }
+  .rounds > li.break-marker .label { display: inline-block; background: var(--bg); padding: 0 0.8rem; position: relative; z-index: 1; }
+  .rounds > li.break-marker::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: var(--border); z-index: 0; }
+  .rounds > li p { font-size: 0.95rem; line-height: 1.55; margin: 0.4rem 0; }
+  .rounds > li ul { font-size: 0.92rem; margin: 0.4rem 0 0.4rem 1.2rem; }
+  .rounds > li ul li { margin-bottom: 0.2rem; }
+  .rounds > li blockquote { border-left: 3px solid var(--navy-light); background: var(--hint-bg); padding: 0.6rem 0.85rem; margin: 0.6rem 0; font-style: italic; font-size: 0.95rem; border-radius: 0 4px 4px 0; color: var(--text); }
+  .form-fallback { font-size: 0.85rem; color: var(--muted); margin-top: 0.6rem; font-style: italic; }
+  .downloads { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); gap: 0.9rem; margin-top: 1rem; }
+  .dl-card { border: 1px solid var(--border); border-radius: 6px; padding: 0.9rem 1rem; transition: border-color 0.15s, box-shadow 0.15s; text-decoration: none; color: var(--text); display: block; }
+  .dl-card:hover { border-color: var(--navy); box-shadow: 0 4px 14px rgba(31,58,95,0.08); text-decoration: none; color: var(--text); }
+  .dl-card .pill { display: inline-block; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 0.15rem 0.5rem; border-radius: 10px; margin-bottom: 0.4rem; }
+  .dl-card .pill.digital { background: #e3ebf5; color: var(--navy); }
+  .dl-card .pill.physical { background: #f9eccd; color: #8a6010; }
+  .dl-card .name { font-weight: 600; color: var(--navy); font-size: 0.95rem; margin-bottom: 0.2rem; }
+  .dl-card .desc { font-size: 0.83rem; color: var(--muted); line-height: 1.4; }
+  .dl-card .arrow { margin-top: 0.5rem; font-size: 0.78rem; color: var(--navy); font-weight: 600; }
+  .dl-card-static { cursor: default; }
+  .dl-card-static:hover { border-color: var(--border); box-shadow: none; }
+  footer.site-footer { background: #f7f8fa; padding: 1.5rem 1.25rem; margin-top: 2rem; border-top: 1px solid var(--border); text-align: center; font-size: 0.85rem; color: var(--muted); line-height: 1.6; }
+  footer.site-footer strong { color: var(--navy); }
+  /* ===== Scan panel (top of page; visible on the projector, hidden on phones) ===== */
+  .qr-panel { display: flex; align-items: center; gap: 1.5rem; background: linear-gradient(135deg, #f7f8fa 0%, #fcfcfd 100%); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem 1.5rem; margin: 1.5rem 0 0.5rem; }
+  .qr-panel .qr-image { flex: 0 0 auto; width: 130px; height: 130px; border-radius: 6px; background: #fff; padding: 6px; border: 1px solid var(--border); display: block; }
+  .qr-panel .qr-image img { width: 100%; height: 100%; display: block; }
+  .qr-panel .qr-text { flex: 1 1 auto; min-width: 0; }
+  .qr-panel .qr-text h2 { font-family: 'Crimson Pro', serif; font-size: 1.35rem; font-weight: 600; color: var(--navy); margin-bottom: 0.35rem; line-height: 1.15; }
+  .qr-panel .qr-text .url { font-family: 'IBM Plex Mono', monospace; font-size: 0.9rem; color: var(--navy); word-break: break-all; background: #fff; padding: 0.35rem 0.6rem; border: 1px solid var(--border); border-radius: 4px; display: inline-block; }
+  @media (max-width: 700px) { .qr-panel { display: none; } }
+  @media (max-width: 600px) {
+    .site-header { padding: 1.2rem 1rem; }
+    section { padding: 1.5rem 0; }
+    section h2 { font-size: 1.4rem; }
+    .btn { width: 100%; justify-content: center; }
+  }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container">
+    <div class="eyebrow">AI Skills Lab — Lesson 10</div>
+    <h1>SBAR Hand-Off Pilot — MFR Lab</h1>
+    <div class="subtitle">You are LTC Donovan. The Chief of Staff wants an MFR by Friday.</div>
+  </div>
+</header>
+
+<div class="container">
+
+<div class="qr-panel" aria-label="Scan to open this site on your own device">
+  <a href="qr-code.png" class="qr-image" target="_blank" rel="noopener">
+    <img src="qr-code.png" alt="QR code linking to this lab site">
+  </a>
+  <div class="qr-text">
+    <h2>Open this on your own laptop</h2>
+    <span class="url">black-jl.github.io/sbar-board</span>
+  </div>
+</div>
+
+<section id="scenario">
+  <h2>The scenario</h2>
+  <div class="scenario">
+    <div class="label">Your task</div>
+    <div class="body">
+      You are <strong>LTC Pat Donovan</strong>, Deputy Commander for Administration at Stewart Army Community Hospital
+      (100 beds). The Chief of Staff has tasked you with writing an MFR documenting the 90-day SBAR hand-off
+      pilot on Med-Surg and ICU, and recommending whether to expand it enterprise-wide.
+    </div>
+  </div>
+
+  <div class="cta-row">
+    <a href="#downloads" class="btn"><span class="icon">↓</span> Get the source materials</a>
+    <a href="#rounds" class="btn secondary"><span class="icon">▸</span> Read the lab format</a>
+  </div>
+</section>
+
+<section id="rounds">
+  <h2>The lab</h2>
+
+  <ol class="rounds">
+    <li>
+      <span class="title">Gather your data <span class="time-tag">~5 min</span></span>
+      <p>Read everything in the digital source packet. Then walk to the side table at the front of the room and look at the two printed items there — scribbled huddle notes and a family letter. Take notes or pictures.</p>
+    </li>
+
+    <li>
+      <span class="title">Build the prompt and generate the initial output <span class="time-tag">~10 min</span></span>
+      <p>Gather all of the inputs you'll need for the prompt:</p>
+      <ul>
+        <li>Who you are and what document you're producing</li>
+        <li>The format standard (AR 25-50)</li>
+        <li>The source material you actually want it to use</li>
+        <li>Constraints: don't fabricate, third person, plain language, etc.</li>
+        <li>A voice anchor — the reference MFR in the packet works for this</li>
+      </ul>
+      <p>Think critically about how to structure them into the best prompt you can write. Then open whatever AI tool you brought and run it.</p>
+      <p>Read the output critically. Iterate <em>once</em>. Before you iterate, ask yourself: would you sign this and defend it to the hospital commander?</p>
+    </li>
+
+    <li>
+      <span class="title">Pair feedback — one piece <span class="time-tag">~5 min</span></span>
+      <p>Trade drafts with the person next to you. Read their MFR, then give them <strong>one</strong> piece of feedback. Just one. Not three, not five.</p>
+      <p>The question to ask before you write the feedback:</p>
+      <blockquote>What is the single change that would make this MFR more likely to be acted on by the Commander?</blockquote>
+    </li>
+
+    <li>
+      <span class="title">Revise and submit <span class="time-tag">~20 min</span></span>
+      <p>Apply your partner's feedback; revise or regenerate as needed. Then upload your finished MFR — the actual document (PDF or Word), not just the text. Give it a pseudonym so you can find it later.</p>
+      <div class="cta-row">
+        <a href="upload.html" class="btn"><span class="icon">↑</span> Submit your MFR</a>
+        <a href="browse.html" class="btn secondary"><span class="icon">▤</span> Browse all submissions</a>
+      </div>
+      <p class="form-fallback">You can browse everyone's submissions once your own is in. Trouble uploading? Email your draft to <a href="mailto:jared_black@baylor.edu">jared_black@baylor.edu</a>.</p>
+    </li>
+
+    <li class="break-marker"><span class="label">— 10-minute break —</span></li>
+
+    <li>
+      <span class="title">Mock board — score the finalists <span class="time-tag">~15 min</span></span>
+      <p>The instructor picks finalists from the submissions and opens voting. On the voting page you'll read each finalist's MFR and score it on six dimensions (1–5) — sounds human, source-anchored, restrained, AR 25-50 + BLUF, compelling, no PII — plus a yes/no: <em>would you forward this to the Commander?</em> The tally goes up on the screen.</p>
+      <div class="cta-row">
+        <a href="vote.html" class="btn"><span class="icon">★</span> Open the mock-board voting</a>
+      </div>
+      <p class="form-fallback">Voting opens once the instructor posts the finalists. If it says "not open yet," wait for the go-ahead.</p>
+    </li>
+
+    <li>
+      <span class="title">Backwards-engineer the winner <span class="time-tag">~35 min</span></span>
+      <p>The winner walks the class through the tool they used, the prompt they built, and what they iterated. The class extracts the patterns.</p>
+    </li>
+  </ol>
+</section>
+
+<section id="downloads">
+  <h2>Download the source packet</h2>
+  <div class="downloads">
+    <a href="files/digital-packet.pdf" class="dl-card">
+      <span class="pill digital">Digital bundle</span>
+      <div class="name">SBAR Pilot Source Packet</div>
+      <div class="desc">Tasking memo, voice memo transcript, baseline + pilot data, reference MFR, email thread, phone notes.</div>
+      <div class="arrow">Download PDF →</div>
+    </a>
+    <div class="dl-card dl-card-static">
+      <span class="pill physical">Physical &middot; in the room</span>
+      <div class="name">Two printed items at the side table</div>
+      <div class="desc">Scribbled Med-Surg huddle notes and a family letter. Go read them — they don't repeat what's in the digital packet.</div>
+    </div>
+  </div>
+</section>
+
+</div>
+
+<footer class="site-footer">
+  <div>All scenario data is fictional and is fabricated for instructional purposes.</div>
+</footer>
+
+</body>
+</html>

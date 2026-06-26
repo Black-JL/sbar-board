@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pick Finalists — Instructor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Crimson+Pro:wght@600&display=swap" rel="stylesheet">
+<script>
+/* INSTRUCTOR ONLY. Same Apps Script /exec URL as the rest.
+   Keep this URL to yourself — it's the page that publishes the finalist set. */
+const CONFIG = {
+  round: "Round 5",
+  endpoint: "",   // <-- Apps Script /exec URL
+};
+</script>
+<style>
+  :root{ --navy:#1f3a5f; --gold:#b8860b; --soft:#555; --rule:#d8dde5; --bg:#f4f6f9; --good:#1c7c4a; }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Inter',sans-serif;color:#1a1a1a;background:var(--bg);line-height:1.45;}
+  header{background:var(--navy);color:#fff;padding:1.2rem 1.4rem;display:flex;justify-content:space-between;align-items:center;}
+  header .kick{font-size:.7rem;letter-spacing:.18em;text-transform:uppercase;color:rgba(255,255,255,.6);}
+  header h1{font-family:'Crimson Pro',serif;font-size:1.5rem;font-weight:600;}
+  header .pub{background:var(--gold);color:#1a1200;border:none;border-radius:8px;padding:.6rem 1.3rem;font-family:'Inter';font-weight:700;font-size:.92rem;cursor:pointer;}
+  header .pub:disabled{background:#9aa7b8;color:#fff;cursor:not-allowed;}
+  .wrap{max-width:900px;margin:0 auto;padding:1.1rem 1.4rem 4rem;}
+  .bar{display:flex;justify-content:space-between;align-items:center;margin:.4rem 0 1rem;font-size:.88rem;color:var(--soft);}
+  .bar .status b{color:var(--navy);}
+  table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--rule);border-radius:8px;overflow:hidden;}
+  th{background:#eef2f7;text-align:left;padding:.55rem .8rem;font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--navy);border-bottom:1px solid var(--rule);}
+  td{padding:.55rem .8rem;border-bottom:1px solid #eef1f5;vertical-align:middle;font-size:.92rem;}
+  tr:last-child td{border-bottom:none;}
+  tr.picked{background:#f1faf4;}
+  .pseudo{font-weight:700;color:var(--navy);}
+  .fn{font-size:.78rem;color:var(--soft);}
+  td.num{font-family:'Crimson Pro',serif;font-size:1.3rem;font-weight:600;color:var(--gold);text-align:center;width:3rem;}
+  a.open{color:var(--navy);font-weight:600;font-size:.82rem;text-decoration:none;white-space:nowrap;}
+  a.open:hover{text-decoration:underline;}
+  .pickbtn{border:1px solid var(--rule);background:#fff;border-radius:7px;padding:.4rem .9rem;font-family:'Inter';font-size:.84rem;font-weight:600;color:var(--soft);cursor:pointer;}
+  .pickbtn.on{background:var(--good);color:#fff;border-color:var(--good);}
+  .empty{text-align:center;color:var(--soft);padding:3rem 1rem;}
+  .demo-tag{background:#fff3cd;color:#7a5b00;font-size:.72rem;text-align:center;padding:.3rem;font-weight:600;}
+  .toast{position:fixed;bottom:1.2rem;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:.7rem 1.4rem;border-radius:8px;font-size:.9rem;opacity:0;transition:.25s;}
+  .toast.show{opacity:1;}
+</style>
+</head>
+<body>
+<div id="demoTag" class="demo-tag" style="display:none;">DEMO MODE — set an ENDPOINT to load real submissions and publish finalists.</div>
+<header>
+  <div><div class="kick">Lesson 10 · SBAR Pilot · <span id="roundLbl"></span></div><h1>Pick Finalists</h1></div>
+  <button class="pub" id="pub" disabled>Publish finalists</button>
+</header>
+<div class="wrap">
+  <div class="bar">
+    <div class="status"><b id="picked">0</b> selected · <b id="total">0</b> submissions · select in the order you want them shown to the class</div>
+    <div><a class="open" href="console.html" style="margin-right:1.2rem;">← Console</a><a class="open" href="browse.html?instructor=1" target="_blank">Open browse view ↗</a></div>
+  </div>
+  <table id="tbl"><thead><tr><th style="width:3rem;">#</th><th>Pseudonym</th><th>File</th><th>Document</th><th style="width:7rem;"></th></tr></thead>
+    <tbody id="rows"><tr><td colspan="5" class="empty">Loading submissions…</td></tr></tbody></table>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $=id=>document.getElementById(id);
+$('roundLbl').textContent=CONFIG.round;
+let files=[]; const order=[]; // order of picked ids
+if(!CONFIG.endpoint) $('demoTag').style.display='block';
+
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function numFor(id){ const i=order.indexOf(id); return i<0?'':(i+1); }
+function render(){
+  $('total').textContent=files.length; $('picked').textContent=order.length;
+  $('pub').disabled = order.length<2;
+  $('rows').innerHTML = files.length ? files.map(f=>{
+    const on=order.includes(f.id);
+    return `<tr class="${on?'picked':''}">
+      <td class="num">${numFor(f.id)}</td>
+      <td><span class="pseudo">${esc(f.pseudonym||'—')}</span></td>
+      <td class="fn">${esc(f.filename||'')}</td>
+      <td>${f.url?`<a class="open" href="${f.url}" target="_blank" rel="noopener">Open ↗</a>`:''}</td>
+      <td><button class="pickbtn ${on?'on':''}" data-id="${esc(f.id)}">${on?'Finalist ✓':'Pick'}</button></td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="5" class="empty">No submissions yet.</td></tr>';
+}
+$('rows').addEventListener('click',e=>{
+  const b=e.target.closest('.pickbtn'); if(!b) return;
+  const id=b.dataset.id, i=order.indexOf(id);
+  if(i<0) order.push(id); else order.splice(i,1);
+  render();
+});
+$('pub').addEventListener('click',async ()=>{
+  const finalists=order.map((id,i)=>{ const f=files.find(x=>x.id===id);
+    return {finalist:i+1, id, pseudonym:f.pseudonym, filename:f.filename, mime:f.mime, url:f.url}; });
+  const payload={action:'setFinalists', round:CONFIG.round, finalists, ts:new Date().toISOString()};
+  if(CONFIG.endpoint){
+    try{ await fetch(CONFIG.endpoint,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body:JSON.stringify(payload)}); }catch(e){}
+  }else{ localStorage.setItem('mb_finalists_'+CONFIG.round, JSON.stringify(finalists)); }
+  toast(`Published ${finalists.length} finalists — vote page is now live.`);
+});
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),2600); }
+
+async function load(){
+  if(CONFIG.endpoint){
+    try{ const r=await fetch(CONFIG.endpoint+'?action=list&round='+encodeURIComponent(CONFIG.round)+'&t='+Date.now());
+      const d=await r.json(); files=(d.files||[]).sort((a,b)=>(a.ts||'').localeCompare(b.ts||'')); }
+    catch(e){ files=[]; }
+  }else{ files=JSON.parse(localStorage.getItem('mb_uploads')||'[]'); }
+  render();
+}
+load(); setInterval(load, 8000);
+</script>
+</body>
+</html>
