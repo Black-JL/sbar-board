@@ -115,7 +115,7 @@ $('go').addEventListener('click',async ()=>{
 function success(){
   // unlock browsing on this device — students can't peek until they've submitted
   try{ localStorage.setItem('mb_submitted_'+CONFIG.round,'1'); }catch(e){}
-  $('root').innerHTML='<div class="done"><h2>Submitted.</h2><p>Your MFR is in. Now you can browse everyone’s submissions, or head to the mock board when the instructor opens it.</p><a href="browse.html">Browse all submissions →</a></div>';
+  $('root').innerHTML='<div class="done"><h2>Submitted.</h2><p>Your MFR is in. Hang tight — while you wait, browse everyone’s submissions below. The instructor will pick a few finalists and open the mock board; head to <b>Round 6</b> to vote when it goes live.</p><a href="browse.html">Browse all submissions →</a></div>';
 }
 function toBase64(file){
   return new Promise((res,rej)=>{ const r=new FileReader();

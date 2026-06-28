@@ -161,8 +161,23 @@ async function init(){
 function showClosed(){
   document.querySelector('.wrap').innerHTML =
     '<div class="closed"><div class="big">Voting isn’t open yet.</div>'
-    + '<p>The instructor will open the mock board once the finalists are posted. Refresh this page then.</p></div>';
+    + '<p>The instructor is picking the finalists. This page will open on its own the moment voting starts — just leave it up.</p></div>';
   document.querySelector('.submitbar').style.display='none';
+  pollUntilOpen();
+}
+// While closed, quietly check for published finalists and reload once voting opens —
+// students don't have to refresh. Only runs in the closed state, so in-progress
+// ballots are never wiped. No-op in demo mode (no endpoint).
+function pollUntilOpen(){
+  if(!CONFIG.endpoint) return;
+  setTimeout(async ()=>{
+    try{
+      const r=await fetch(CONFIG.endpoint+'?action=finalists&round='+encodeURIComponent(CONFIG.round)+'&t='+Date.now());
+      const d=await r.json();
+      if(Array.isArray(d.finalists) && d.finalists.length){ location.reload(); return; }
+    }catch(e){}
+    pollUntilOpen();
+  }, 4000);
 }
 init();
 </script>
