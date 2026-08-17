@@ -52,7 +52,19 @@ You run the whole thing from **`console.html`** and never touch code.
 
 In every page's `CONFIG`, set `round` to a label for this cohort, e.g.
 `"Campbell Jul26"`. It keeps each delivery's submissions, finalists, and ballots
-separate. (Or just reuse `"Round 5"` and hit **Clear** between classes — below.)
+separate. (Or just reuse the current label and hit **Clear** between classes — below.)
+
+> **⚠ Never use a label Google Sheets can read as a date.** The backend writes the
+> round into a sheet cell, and Sheets silently converts anything date-shaped into a
+> real date — `"Aug 2026"` becomes `2026-08-01`, `"Aug26"` becomes `2026-08-26`.
+> The pages then filter on the literal string and match nothing, so **uploads appear
+> to succeed but never show up in browse, pick, console, or results**, and Clear
+> can't remove them either. Always include a non-date word:
+> `"Aug 2026 Cohort"` ✓ · `"Campbell Aug26"` ✓ · `"Aug 2026"` ✗ · `"Aug26"` ✗.
+>
+> Verify after changing it: load `console.html` and upload one test file — if the
+> Submissions counter moves, the label is safe. If it stays at 0, the label was
+> coerced; pick a different one.
 
 ## Running the board (all from `console.html`)
 
