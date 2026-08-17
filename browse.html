@@ -10,7 +10,7 @@
 <script>
 /* CONFIG — same Apps Script /exec URL as the rest. round filters the list. */
 const CONFIG = {
-  round: "Round 5",
+  round: "Aug 2026",
   endpoint: "https://script.google.com/macros/s/AKfycbwE5SNYvF-vqk7aVJcrx-9e9qanRWken4iUlI889VTOdhYK-0wWO053KOe01RjhhEbKgw/exec",        // <-- Apps Script /exec URL
   pollSeconds: 6
 };
@@ -29,6 +29,7 @@ const CONFIG = {
   .doc{background:#fff;border:1px solid var(--rule);border-radius:10px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 1px 3px rgba(20,30,50,.05);}
   .doc .prev{height:150px;background:#eef2f7;display:flex;align-items:center;justify-content:center;border-bottom:1px solid var(--rule);overflow:hidden;}
   .doc .prev iframe{width:100%;height:100%;border:0;}
+  .doc .prev img{width:100%;height:100%;object-fit:cover;object-position:top center;background:#fff;}
   .doc .prev .ico{font-size:2.2rem;color:#9aa7b8;}
   .doc .meta{padding:.6rem .75rem;}
   .doc .pseudo{font-weight:700;color:var(--navy);font-size:.95rem;}
@@ -70,10 +71,21 @@ if(!isInstructor && !hasSubmitted){
   throw new Error('gated'); // stop the rest of the script from loading the list
 }
 function icon(mime){ return (mime||'').includes('pdf') ? 'PDF' : 'DOC'; }
+// Drive's /preview embed renders blank in a cross-site iframe (third-party cookies).
+// Its thumbnail render needs no cookies and works for both PDF and Word uploads.
+// Thumbnails are built lazily, so retry a few times before falling back to the type badge.
+function driveFileId(f){ return f.id || (String(f.url||'').match(/\/d\/([^/]+)/)||[])[1] || ''; }
+function thumbUrl(id, tries){ return 'https://drive.google.com/thumbnail?id='+encodeURIComponent(id)+'&sz=w600'+(tries?'&r='+tries:''); }
+function thumbRetry(img){
+  const tries = (+img.dataset.tries || 0) + 1;
+  img.dataset.tries = tries;
+  if(tries > 4){ img.parentNode.innerHTML = '<div class="ico">'+(img.dataset.ico||'DOC')+'</div>'; return; }
+  setTimeout(()=>{ img.src = thumbUrl(img.dataset.fid, tries); }, tries * 2500);
+}
 function card(f){
-  const isPdf=(f.mime||'').includes('pdf');
-  const prev = isPdf && f.url
-    ? `<iframe src="${f.url}#toolbar=0&navpanes=0" loading="lazy"></iframe>`
+  const fid = driveFileId(f);
+  const prev = fid
+    ? `<img src="${thumbUrl(fid,0)}" data-fid="${fid}" data-tries="0" data-ico="${icon(f.mime)}" alt="" onerror="thumbRetry(this)">`
     : `<div class="ico">${icon(f.mime)}</div>`;
   const when = f.ts ? new Date(f.ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
   return `<div class="doc"><div class="prev">${prev}</div>

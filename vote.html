@@ -15,7 +15,7 @@
    2) FINALISTS: the finalists you're showing, in order, with pseudonyms.
    ============================================================ */
 const CONFIG = {
-  round: "Round 5",
+  round: "Aug 2026",
   endpoint: "https://script.google.com/macros/s/AKfycbwE5SNYvF-vqk7aVJcrx-9e9qanRWken4iUlI889VTOdhYK-0wWO053KOe01RjhhEbKgw/exec",   // <-- paste Apps Script /exec URL here
   finalists: [
     { id: 1, pseudonym: "—" },
@@ -71,8 +71,9 @@ const DIMENSIONS = [
   .done h2{font-family:'Crimson Pro',serif;color:var(--navy);font-size:1.9rem;}
   .done p{color:var(--soft);margin-top:.6rem;}
   .demo-tag{background:#fff3cd;color:#7a5b00;font-size:.72rem;text-align:center;padding:.3rem;font-weight:600;}
-  .docview{border-bottom:1px solid var(--rule);background:#f0f2f5;}
-  .docview iframe{width:100%;height:440px;border:0;display:block;}
+  .docview{border-bottom:1px solid var(--rule);background:#f0f2f5;max-height:560px;overflow:auto;-webkit-overflow-scrolling:touch;}
+  .docview img{width:100%;display:block;background:#fff;}
+  .docview .noprev{padding:2.4rem 1rem;text-align:center;color:var(--soft);font-size:.88rem;}
   .docopen{display:block;text-align:center;padding:.55rem;font-size:.84rem;font-weight:600;color:var(--navy);text-decoration:none;border-top:1px solid #e3e8ef;background:#fff;}
   .docopen:hover{background:#f3f6fa;}
   .closed{text-align:center;padding:4rem 1rem;color:var(--soft);}
@@ -94,6 +95,25 @@ const state = {}; // finalistId -> { forward: 'yes'|'no'|null, scores:{key:1-5} 
 const voter = (function(){ let v=localStorage.getItem('mb_voter'); if(!v){ v='v'+Math.abs(Math.random().toString().slice(2)).toString().slice(0,9); localStorage.setItem('mb_voter',v);} return v; })();
 
 function totalFor(f){ const s=state[f.id].scores; return DIMENSIONS.reduce((a,d)=>a+(s[d.key]||0),0); }
+
+// Drive's /preview embed renders blank inside a cross-site iframe (third-party cookies),
+// so show Drive's server-rendered page image instead — it needs no cookies and no login.
+// One-page MFRs fit in the first page image; "Open full document" covers the rest.
+// Drive builds a thumbnail lazily, so a just-uploaded file can 404 for a few seconds:
+// retry a handful of times before giving up on the preview.
+function driveFileId(f){ return f.fileId || (String(f.url||'').match(/\/d\/([^/]+)/)||[])[1] || ''; }
+function thumbUrl(id, tries){ return 'https://drive.google.com/thumbnail?id='+encodeURIComponent(id)+'&sz=w1400'+(tries?'&r='+tries:''); }
+function thumbRetry(img){
+  const tries = (+img.dataset.tries || 0) + 1;
+  img.dataset.tries = tries;
+  if(tries > 4){ img.parentNode.innerHTML = '<div class="noprev">Preview still building — use the link below to read it.</div>'; return; }
+  setTimeout(()=>{ img.src = thumbUrl(img.dataset.fid, tries); }, tries * 2500);
+}
+function docPreview(f, alt){
+  const id = driveFileId(f);
+  if(!id) return '<div class="noprev">Open the document with the link below.</div>';
+  return `<img src="${thumbUrl(id,0)}" data-fid="${id}" data-tries="0" alt="${alt}" onerror="thumbRetry(this)">`;
+}
 function render(){
   document.getElementById('roundLbl').textContent = CONFIG.round;
   if(!CONFIG.endpoint) document.getElementById('demoTag').style.display='block';
@@ -102,7 +122,7 @@ function render(){
     state[f.id]={forward:null,scores:{}};
     const el=document.createElement('div'); el.className='finalist';
     el.innerHTML=`<div class="fhead"><span class="fnum">Finalist #${f.id}</span><span class="fpseudo">pseudonym: <b>${f.pseudonym}</b></span></div>
-      ${f.url?`<div class="docview"><iframe src="${f.url}#toolbar=1&navpanes=0" title="Finalist ${f.id} document" loading="lazy"></iframe></div><a class="docopen" href="${f.url}" target="_blank" rel="noopener">Open full document ↗</a>`:''}
+      ${f.url?`<div class="docview">${docPreview(f, `Finalist ${f.id} document`)}</div><a class="docopen" href="${f.url}" target="_blank" rel="noopener">Open full document ↗</a>`:''}
       <div class="fbody">
         <div class="forward"><span class="q">Forward to the Commander?</span>
           <span class="toggle"><button class="yes" data-f="${f.id}" data-v="yes">Yes</button><button class="no" data-f="${f.id}" data-v="no">No</button></span>
@@ -154,7 +174,7 @@ async function init(){
   }
   if(Array.isArray(list)){
     if(list.length===0){ return showClosed(); }   // endpoint up, nothing published yet
-    CONFIG.finalists = list.map(f=>({ id:f.finalist, pseudonym:f.pseudonym, url:f.url }));
+    CONFIG.finalists = list.map(f=>({ id:f.finalist, pseudonym:f.pseudonym, url:f.url, fileId:f.id }));
   }
   render();
 }
