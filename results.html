@@ -14,7 +14,7 @@
 const CONFIG = {
   round: "Sep 2026 Cohort",
   endpoint: "https://script.google.com/macros/s/AKfycbwE5SNYvF-vqk7aVJcrx-9e9qanRWken4iUlI889VTOdhYK-0wWO053KOe01RjhhEbKgw/exec",            // <-- same /exec URL as vote.html
-  pollSeconds: 4,
+  pollSeconds: 10,
   // Names stay hidden until the leader can no longer be caught, so voters
   // aren't swayed by who's winning. Set the expected ballot count on screen
   // (or ?expect=N in the URL); remaining ballots are assumed to score the
@@ -79,6 +79,9 @@ const DIMS = ["human","source","restrained","format","compelling","nopii"];
 
 <script>
 const DIM_LABEL={human:"Human",source:"Source",restrained:"Restrained",format:"Format",compelling:"Compelling",nopii:"No PII"};
+// Published finalists for this round, baked in so the page never waits on the
+// backend to open voting (Apps Script throttles under a full class). Clear to [] next cohort.
+const PUBLISHED = [{"finalist": 1, "id": "159Ycv_dpOMke_rSzQ293nxG9u-dS_PRF", "pseudonym": "Spicy Meatball", "url": "https://drive.google.com/file/d/159Ycv_dpOMke_rSzQ293nxG9u-dS_PRF/preview"}, {"finalist": 2, "id": "19vUZUD9Sk9nUvRCM6-NAvWgUGSMAcJPs", "pseudonym": "R3_MFR", "url": "https://drive.google.com/file/d/19vUZUD9Sk9nUvRCM6-NAvWgUGSMAcJPs/preview"}, {"finalist": 3, "id": "1ULRPcpvmqP6jGUYW07PaG7UQHtVsGd4g", "pseudonym": "SBAR MFR-Final", "url": "https://drive.google.com/file/d/1ULRPcpvmqP6jGUYW07PaG7UQHtVsGd4g/preview"}, {"finalist": 4, "id": "1uFatK-lAUtcugIqGRSgen8xzff4WlT2G", "pseudonym": "MFR Joy", "url": "https://drive.google.com/file/d/1uFatK-lAUtcugIqGRSgen8xzff4WlT2G/preview"}, {"finalist": 5, "id": "1gQXSgvIAgbJHHlEIC2iYKUkqyn5ZNXmw", "pseudonym": "Army Writing-2LT Sean Kim", "url": "https://drive.google.com/file/d/1gQXSgvIAgbJHHlEIC2iYKUkqyn5ZNXmw/preview"}];
 function tally(ballots){
   const agg={}; CONFIG.finalists.forEach(f=>agg[f.id]={id:f.id,pseudonym:f.pseudonym,n:0,sumTotal:0,fwdYes:0,dim:{}});
   DIMS.forEach(d=>CONFIG.finalists.forEach(f=>agg[f.id].dim[d]=0));
@@ -134,6 +137,7 @@ function draw(ballots){
   });
 }
 async function loadFinalists(){
+  if(PUBLISHED.length){ CONFIG.finalists=PUBLISHED.map(f=>({id:f.finalist,pseudonym:f.pseudonym})); return; }
   if(CONFIG.endpoint){
     try{ const r=await fetch(CONFIG.endpoint+'?action=finalists&round='+encodeURIComponent(CONFIG.round)+'&t='+Date.now());
       const d=await r.json(); if(Array.isArray(d.finalists)&&d.finalists.length)

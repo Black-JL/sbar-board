@@ -161,11 +161,15 @@ function submit(){
 }
 document.getElementById('submitBtn').addEventListener('click',submit);
 
+// Published finalists for this round, baked in so the page never waits on the
+// backend to open voting (Apps Script throttles under a full class). Clear to [] next cohort.
+const PUBLISHED = [{"finalist": 1, "id": "159Ycv_dpOMke_rSzQ293nxG9u-dS_PRF", "pseudonym": "Spicy Meatball", "url": "https://drive.google.com/file/d/159Ycv_dpOMke_rSzQ293nxG9u-dS_PRF/preview"}, {"finalist": 2, "id": "19vUZUD9Sk9nUvRCM6-NAvWgUGSMAcJPs", "pseudonym": "R3_MFR", "url": "https://drive.google.com/file/d/19vUZUD9Sk9nUvRCM6-NAvWgUGSMAcJPs/preview"}, {"finalist": 3, "id": "1ULRPcpvmqP6jGUYW07PaG7UQHtVsGd4g", "pseudonym": "SBAR MFR-Final", "url": "https://drive.google.com/file/d/1ULRPcpvmqP6jGUYW07PaG7UQHtVsGd4g/preview"}, {"finalist": 4, "id": "1uFatK-lAUtcugIqGRSgen8xzff4WlT2G", "pseudonym": "MFR Joy", "url": "https://drive.google.com/file/d/1uFatK-lAUtcugIqGRSgen8xzff4WlT2G/preview"}, {"finalist": 5, "id": "1gQXSgvIAgbJHHlEIC2iYKUkqyn5ZNXmw", "pseudonym": "Army Writing-2LT Sean Kim", "url": "https://drive.google.com/file/d/1gQXSgvIAgbJHHlEIC2iYKUkqyn5ZNXmw/preview"}];
 // Load the finalists the instructor published (with their documents).
 // Falls back to CONFIG.finalists only in pure demo (no endpoint, none published).
 async function init(){
   let list=null;
-  if(CONFIG.endpoint){
+  if(PUBLISHED.length){ list=PUBLISHED; }
+  else if(CONFIG.endpoint){
     try{ const r=await fetch(CONFIG.endpoint+'?action=finalists&round='+encodeURIComponent(CONFIG.round)+'&t='+Date.now());
       const d=await r.json(); list=d.finalists||[]; }catch(e){ list=[]; }
   } else {
