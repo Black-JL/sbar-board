@@ -15,6 +15,11 @@ const CONFIG = {
   round: "Sep 2026 Cohort",
   endpoint: "https://script.google.com/macros/s/AKfycbwE5SNYvF-vqk7aVJcrx-9e9qanRWken4iUlI889VTOdhYK-0wWO053KOe01RjhhEbKgw/exec",            // <-- same /exec URL as vote.html
   pollSeconds: 4,
+  // Names stay hidden until the leader can no longer be caught, so voters
+  // aren't swayed by who's winning. Set the expected ballot count on screen
+  // (or ?expect=N in the URL); remaining ballots are assumed to score the
+  // leader 6/30 and a challenger 30/30 — only a lead that survives that is locked.
+  minTotal: 6, maxTotal: 30,
   finalists: [
     { id: 1, pseudonym: "—" },
     { id: 2, pseudonym: "—" },
@@ -52,6 +57,13 @@ const DIMS = ["human","source","restrained","format","compelling","nopii"];
   .metrics .fwd b{color:var(--good);}
   .dimrow{font-size:.72rem;color:rgba(255,255,255,.5);margin-top:.35rem;letter-spacing:.02em;}
   footer{margin-top:1.5rem;font-size:.75rem;color:rgba(255,255,255,.4);text-align:center;}
+  .hold{text-align:center;padding:.2rem 0 .6rem;}
+  .hold p{color:rgba(255,255,255,.65);margin-top:.6rem;font-size:1rem;}
+  .hold .prog{margin:.7rem auto 0;max-width:36rem;height:12px;background:rgba(255,255,255,.1);border-radius:6px;overflow:hidden;}
+  .hold .prog div{height:100%;background:var(--good);transition:width .6s;}
+  .ctl{margin-top:1rem;font-size:.75rem;color:rgba(255,255,255,.4);display:flex;gap:.8rem;justify-content:center;align-items:center;}
+  .ctl input{width:4rem;background:transparent;border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:5px;padding:.2rem .4rem;font:inherit;}
+  .ctl button{background:transparent;border:1px solid rgba(255,255,255,.25);color:rgba(255,255,255,.6);border-radius:5px;padding:.2rem .6rem;font:inherit;cursor:pointer;}
   .demo{background:#3a2e00;color:#ffd76b;text-align:center;padding:.4rem;font-size:.78rem;border-radius:6px;margin-bottom:1rem;font-weight:600;}
 </style>
 </head>
@@ -62,7 +74,8 @@ const DIMS = ["human","source","restrained","format","compelling","nopii"];
   <div class="count"><b id="ballotCount">0</b>ballots in</div>
 </header>
 <div class="rows" id="rows"></div>
-<footer>Auto-refreshes every <span id="ps"></span>s · winner = highest average total /30 · ties broken by % would-forward</footer>
+<div class="ctl">Expected ballots <input id="expectIn" type="number" min="1" placeholder="#"> <button id="revealBtn">Reveal now</button> <button id="hideBtn" style="display:none;">Hide</button></div>
+<footer>Auto-refreshes every <span id="ps"></span>s · names hidden until the leader is locked in · winner = highest average total /30 · ties broken by % would-forward</footer>
 
 <script>
 const DIM_LABEL={human:"Human",source:"Source",restrained:"Restrained",format:"Format",compelling:"Compelling",nopii:"No PII"};
@@ -77,16 +90,42 @@ function tally(ballots){
   arr.sort((x,y)=> y.avg-x.avg || y.fwdPct-x.fwdPct);
   return arr;
 }
+function getExpect(){
+  let s=0; try{ s=+localStorage.getItem('mb_expect_'+CONFIG.round)||0; }catch(e){}
+  return s>0 ? s : (+new URLSearchParams(location.search).get('expect')||0);
+}
+let forceReveal=false;
+// Locked = even if every outstanding ballot gives the leader the minimum and a
+// challenger the maximum, the leader still finishes strictly ahead.
+function isLocked(arr,nBallots,expect){
+  if(!expect||!arr.length||arr[0].n===0) return false;
+  const r=Math.max(0,expect-nBallots), L=arr[0];
+  const lWorst=(L.sumTotal+CONFIG.minTotal*r)/(L.n+r);
+  return arr.slice(1).every(c=>(c.sumTotal+CONFIG.maxTotal*r)/((c.n+r)||1) < lWorst);
+}
 function draw(ballots){
   document.getElementById('roundLbl').textContent=CONFIG.round;
   document.getElementById('ps').textContent=CONFIG.pollSeconds;
   document.getElementById('ballotCount').textContent=ballots.length;
   const arr=tally(ballots); const rows=document.getElementById('rows'); rows.innerHTML='';
+  const expect=getExpect(), locked=isLocked(arr,ballots.length,expect);
+  document.getElementById('hideBtn').style.display=forceReveal?'':'none';
+  document.getElementById('revealBtn').style.display=forceReveal||locked?'none':'';
+  const masked=!forceReveal&&!locked;
+  if(masked){
+    const pct=expect?Math.min(100,Math.round(100*ballots.length/expect)):0;
+    const h=document.createElement('div'); h.className='hold';
+    h.innerHTML=`<p>${expect?`${ballots.length} of ${expect} ballots in.`:`${ballots.length} ballots in.`} Names are hidden until the winner is locked in.</p>
+      ${expect?`<div class="prog"><div style="width:${pct}%"></div></div>`:''}`;
+    rows.appendChild(h);
+  }
   arr.forEach((a,i)=>{
     const el=document.createElement('div'); el.className='row'+(i===0&&a.n>0?' leader':'');
     const dimAvgs=DIMS.map(d=>`${DIM_LABEL[d]} ${(a.n?a.dim[d]/a.n:0).toFixed(1)}`).join(' · ');
+    const who=masked?'<span class="fname">Finalist ?</span> <span class="fpseudo">hidden until the winner is locked in</span>'
+      :`<span class="fname">Finalist #${a.id}</span> <span class="fpseudo">${a.pseudonym}</span>`;
     el.innerHTML=`<div class="rank">${i+1}</div>
-      <div class="who"><span class="fname">Finalist #${a.id}</span> <span class="fpseudo">${a.pseudonym}</span>${i===0&&a.n>0?'<span class="star">★ Leader</span>':''}
+      <div class="who">${who}${i===0&&a.n>0&&!masked?'<span class="star">★ Leader</span>':''}
         <div class="bar-wrap"><div class="bar" style="width:${Math.round(100*a.avg/30)}%"></div></div>
         <div class="dimrow">${dimAvgs}</div></div>
       <div class="metrics"><div class="avg">${a.avg.toFixed(1)}<span class="o"> /30</span></div>
@@ -115,6 +154,10 @@ async function load(){
     draw(JSON.parse(localStorage.getItem('mb_votes')||'[]'));
   }
 }
+const ei=document.getElementById('expectIn'); if(getExpect()) ei.value=getExpect();
+ei.addEventListener('change',()=>{ try{ localStorage.setItem('mb_expect_'+CONFIG.round,ei.value); }catch(e){} load(); });
+document.getElementById('revealBtn').addEventListener('click',()=>{ forceReveal=true; load(); });
+document.getElementById('hideBtn').addEventListener('click',()=>{ forceReveal=false; load(); });
 load(); setInterval(load, CONFIG.pollSeconds*1000);
 </script>
 </body>
